@@ -193,19 +193,35 @@ function useMyLocation() {
       "Location blocked: insecure origin.\nOpen via http://localhost:5173 or http://127.0.0.1:5173 (not a 192.168.x.x address)."
     );
   }
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const { latitude, longitude } = pos.coords;
-      picked.from = { lat: latitude, lon: longitude, label: "My location" };
-      $("from").value = "My location";
-      map.setView([latitude, longitude], 14);
-    },
-    (err) => {
-      const msg = { 1: "Permission denied. Allow location for this site.", 2: "Position unavailable.", 3: "Timed out." }[err.code] || err.message;
-      alert("Location error: " + msg);
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-  );
+  const onOk = (pos) => {
+    const { latitude, longitude } = pos.coords;
+    picked.from = { lat: latitude, lon: longitude, label: "My location" };
+    $("from").value = "My location";
+    map.setView([latitude, longitude], 14);
+  };
+
+  const fail = (err) => {
+    if (err.code === 1) {
+      alert("Location permission denied. Allow location for this site in the browser, then retry.");
+    } else {
+      // code 2 (unavailable) / 3 (timeout): common on desktops with no GPS/location service
+      alert(
+        "Couldn't get your location (your device/browser has no location source).\n" +
+          "Type your starting point in the From box instead — autocomplete will find it."
+      );
+      $("from").focus();
+    }
+  };
+
+  // try GPS-grade first; on unavailable/timeout, retry network/IP-based (more likely on desktop)
+  navigator.geolocation.getCurrentPosition(onOk, (err) => {
+    if (err.code === 1) return fail(err); // permission denied -> no point retrying
+    navigator.geolocation.getCurrentPosition(onOk, fail, {
+      enableHighAccuracy: false,
+      timeout: 15000,
+      maximumAge: 600000,
+    });
+  }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
 }
 
 function swap() {
