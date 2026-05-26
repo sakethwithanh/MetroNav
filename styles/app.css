@@ -781,6 +781,8 @@ button { font-family: inherit; }
     background: var(--border-strong);
   }
   .panel-head { padding-top: 4px; }
+  /* >=16px stops iOS/Android auto-zooming the page on input focus */
+  .io input { font-size: 16px; }
   #map { bottom: 0; } /* map fills full screen behind the sheet */
   .map-tools { display: none; }  /* zoom/me tools clash with the sheet on phones */
   .statusbar { display: none; }
