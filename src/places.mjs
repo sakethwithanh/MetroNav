@@ -69,14 +69,21 @@ function defaultProxy() {
 export async function getNearbyPlacesGemini(
   coord,
   name,
-  { proxy = defaultProxy(), fetchImpl = fetch } = {}
+  { proxy = defaultProxy(), fetchImpl = fetch, timeoutMs = 6000 } = {}
 ) {
   const url = `${proxy}?lat=${coord.lat}&lon=${coord.lon}&name=${encodeURIComponent(name)}`;
-  const res = await fetchImpl(url);
-  if (!res.ok) throw new Error(`proxy HTTP ${res.status}`);
-  const data = await res.json();
-  if (data.error || !data.spots?.length) throw new Error(data.error || "no spots");
-  return data;
+  // abort if Gemini is too slow -> caller falls back to Overpass
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetchImpl(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(`proxy HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error || !data.spots?.length) throw new Error(data.error || "no spots");
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // Top places near a coord. Returns ranked array of {name, kind, distM, lat, lon}.
