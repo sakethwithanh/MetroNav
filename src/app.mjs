@@ -542,27 +542,50 @@ async function openPopover(sid) {
   popoverEl.querySelector(".close").addEventListener("click", removePopover);
   repositionPopover();
 
-  try {
-    const { spots, source } = await fetchSpots(s);
-    const body = popoverEl?.querySelector(".spots");
-    if (!body || selectedStationId !== sid) return;
-    body.innerHTML = spots.length
-      ? spots.map((p, i) => spotRow(p, i)).join("") + sourceTag(source)
-      : `<div class="ac-empty">No notable spots tagged nearby.</div>`;
-  } catch {
-    const body = popoverEl?.querySelector(".spots");
-    if (body) body.innerHTML = `<div class="ac-empty">Spots unavailable right now.</div>`;
-  }
+  loadSpots(sid, s);
 }
 
-// Gemini proxy first (rich); fall back to free Overpass on any failure.
-async function fetchSpots(s) {
-  try {
-    const g = await getNearbyPlacesGemini({ lat: s.lat, lon: s.lon }, s.name);
-    return { spots: g.spots, source: g.source };
-  } catch {
-    const raw = await getNearbyPlaces({ lat: s.lat, lon: s.lon }, { radiusM: 800, limit: 5 });
-    return { spots: raw.map((p) => ({ name: p.name, kind: p.kind, dist: `${p.distM}m` })), source: "osm" };
+// render spots into the open popover (only if it still shows this station)
+function renderSpots(sid, spots, source) {
+  const body = popoverEl?.querySelector(".spots");
+  if (!body || selectedStationId !== sid) return false;
+  body.innerHTML = spots.length
+    ? spots.map((p, i) => spotRow(p, i)).join("") + sourceTag(source)
+    : `<div class="ac-empty">No notable spots nearby.</div>`;
+  return true;
+}
+
+// Progressive load: fire Gemini + Overpass together. Show Overpass as soon as
+// it returns (fast) so the popover never hangs; upgrade to the richer Gemini
+// result if it arrives within its timeout. Falls back gracefully if either fails.
+async function loadSpots(sid, s) {
+  const coord = { lat: s.lat, lon: s.lon };
+  let shown = false;
+
+  const gem = getNearbyPlacesGemini(coord, s.name)
+    .then((g) => ({ spots: g.spots, source: g.source }))
+    .catch(() => null);
+  const osm = getNearbyPlaces(coord, { radiusM: 800, limit: 5 })
+    .then((raw) => ({ spots: raw.map((p) => ({ name: p.name, kind: p.kind, dist: `${p.distM}m` })), source: "osm" }))
+    .catch(() => null);
+
+  // show Overpass the moment it's ready, unless Gemini already won
+  osm.then((o) => {
+    if (o && !shown && selectedStationId === sid) shown = renderSpots(sid, o.spots, o.source);
+  });
+
+  const g = await gem;
+  if (g && selectedStationId === sid) {
+    renderSpots(sid, g.spots, g.source); // upgrade to richer Gemini result
+    return;
+  }
+  // Gemini failed/timed out: make sure Overpass (or an error) is shown
+  const o = await osm;
+  if (selectedStationId !== sid) return;
+  if (o) renderSpots(sid, o.spots, o.source);
+  else if (!shown) {
+    const body = popoverEl?.querySelector(".spots");
+    if (body) body.innerHTML = `<div class="ac-empty">Spots unavailable right now.</div>`;
   }
 }
 
