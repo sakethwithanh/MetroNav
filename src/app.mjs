@@ -108,6 +108,7 @@ async function boot() {
   $("zoomOut").addEventListener("click", () => map.setZoom(map.getZoom() - 1));
   wireAutocomplete("from", "acFrom");
   wireAutocomplete("to", "acTo");
+  setupSheet();
   $("to").addEventListener("keydown", (e) => e.key === "Enter" && run());
 
   map.on("move zoom", repositionPopover);
@@ -440,6 +441,63 @@ function drawRoute(plan) {
 
 function isMobile() {
   return window.innerWidth <= 720;
+}
+
+// Draggable bottom sheet (phones). Snap points: peek / half / full.
+// Drag the handle to resize; tap it to cycle snaps.
+function setupSheet() {
+  const panel = document.querySelector(".panel");
+  const handle = $("sheetHandle");
+  if (!panel || !handle) return;
+
+  const snaps = () => {
+    const vh = window.innerHeight;
+    return [Math.round(vh * 0.28), Math.round(vh * 0.55), Math.round(vh * 0.9)];
+  };
+  let snapIndex = 1;
+
+  const apply = () => {
+    if (!isMobile()) {
+      panel.style.height = ""; // desktop uses CSS full-height
+      return;
+    }
+    panel.style.height = snaps()[snapIndex] + "px";
+  };
+  apply();
+  window.addEventListener("resize", apply);
+
+  let startY = 0, startH = 0, dragging = false, moved = false;
+
+  handle.addEventListener("pointerdown", (e) => {
+    if (!isMobile()) return;
+    dragging = true; moved = false;
+    startY = e.clientY; startH = panel.offsetHeight;
+    panel.classList.add("dragging");
+    handle.setPointerCapture?.(e.pointerId);
+  });
+  window.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const dy = startY - e.clientY; // drag up => taller
+    if (Math.abs(dy) > 4) moved = true;
+    const s = snaps();
+    const nh = Math.max(s[0] - 40, Math.min(s[2] + 30, startH + dy));
+    panel.style.height = nh + "px";
+  });
+  window.addEventListener("pointerup", () => {
+    if (!dragging) return;
+    dragging = false;
+    panel.classList.remove("dragging");
+    const s = snaps();
+    if (!moved) {
+      snapIndex = (snapIndex + 1) % 3; // tap cycles
+    } else {
+      const cur = panel.offsetHeight; // snap to nearest
+      let best = 0, bd = Infinity;
+      s.forEach((v, i) => { const d = Math.abs(v - cur); if (d < bd) { bd = d; best = i; } });
+      snapIndex = best;
+    }
+    apply();
+  });
 }
 
 function truncate(s, n = 22) { s = (s || "").split(",")[0]; return s.length > n ? s.slice(0, n - 1) + "…" : s; }
