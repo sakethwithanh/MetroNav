@@ -135,6 +135,8 @@ button { font-family: inherit; }
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; /* momentum scroll on iOS */
+  overscroll-behavior: contain;      /* don't bubble to the page/sheet */
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar) transparent;
 }

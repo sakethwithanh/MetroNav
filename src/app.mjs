@@ -245,11 +245,17 @@ async function resolve(which) {
 }
 
 async function run() {
+  // close autocomplete dropdowns + dismiss the mobile keyboard
+  $("acFrom").classList.remove("open");
+  $("acTo").classList.remove("open");
+  document.activeElement?.blur?.();
+
   if (!$("from").value.trim() || !$("to").value.trim()) {
     results.innerHTML = `<div class="err-box">Enter both a start and destination.</div>`;
     return;
   }
   results.innerHTML = `<div class="hint" style="margin:16px"><div>Locating & routing…</div></div>`;
+  if (results.scrollTo) results.scrollTo(0, 0);
   try {
     const origin = await resolve("from");
     const dest = await resolve("to");
