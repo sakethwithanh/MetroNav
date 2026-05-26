@@ -1,0 +1,19 @@
+{
+  "name": "metro-nav",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ad-free Delhi Metro route + live-estimate + nearby-places web app",
+  "scripts": {
+    "fetch:data": "node scripts/fetch-stations.mjs",
+    "build:graph": "node scripts/build-graph.mjs",
+    "dev": "python3 -m http.server 5173",
+    "proxy": "node server/places-proxy.mjs"
+  },
+  "dependencies": {
+    "@google/genai": "^2.6.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

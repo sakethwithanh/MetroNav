@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+node_modules/
+data/raw-overpass.json
+.claude/
+MetroNav-standalone.html
+image*.png
+*.original.md

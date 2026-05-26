@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 120 120" role="img" aria-label="Metro logo">
+  
+  <path d="M 14 102 L 14 60 A 46 46 0 0 1 106 60 L 106 102 Z" fill="#0b1320"></path>
+  
+  <path d="M 22 100 L 22 60 A 38 38 0 0 1 98 60 L 98 100" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="2"></path>
+  
+  <path d="M 36 56 Q 60 46 84 56 L 84 92 L 36 92 Z" fill="#ffffff"></path>
+  
+  <path d="M 36 56 Q 60 46 84 56 L 84 60 Q 60 51 36 60 Z" fill="#0b1320" opacity="0.10"></path>
+  
+  <rect x="42" y="62" width="36" height="12" rx="1.5" fill="#2554ff"></rect>
+  
+  <line x1="60" y1="62" x2="60" y2="74" stroke="#ffffff" stroke-width="1.5"></line>
+  
+  <rect x="36" y="78" width="48" height="3" fill="#0b1320" opacity="0.85"></rect>
+  
+  <rect x="42" y="84" width="10" height="4" rx="1" fill="#0b1320"></rect>
+  <rect x="68" y="84" width="10" height="4" rx="1" fill="#0b1320"></rect>
+  
+  <line x1="10" y1="108" x2="110" y2="108" stroke="#2554ff" stroke-width="4" stroke-linecap="round"></line>
+</svg>
