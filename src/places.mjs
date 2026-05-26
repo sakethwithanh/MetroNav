@@ -89,12 +89,14 @@ export async function getNearbyPlacesGemini(
 // Top places near a coord. Returns ranked array of {name, kind, distM, lat, lon}.
 export async function getNearbyPlaces(
   coord,
-  { radiusM = 800, limit = 5, fetchImpl = fetch } = {}
+  { radiusM = 800, limit = 5, fetchImpl = fetch, timeoutMs = 8000 } = {}
 ) {
   const body = "data=" + encodeURIComponent(buildQuery(coord, radiusM));
   let json;
   let lastErr;
   for (const url of ENDPOINTS) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
       const res = await fetchImpl(url, {
         method: "POST",
@@ -104,12 +106,15 @@ export async function getNearbyPlaces(
           Accept: "application/json",
         },
         body,
+        signal: ctrl.signal,
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       json = await res.json();
       break;
     } catch (err) {
       lastErr = err;
+    } finally {
+      clearTimeout(timer);
     }
   }
   if (!json) throw new Error(`places lookup failed: ${lastErr?.message}`);

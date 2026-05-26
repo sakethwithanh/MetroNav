@@ -104,6 +104,11 @@ async function boot() {
   $("meTool").addEventListener("click", useMyLocation);
   $("swapBtn").addEventListener("click", swap);
   $("themeBtn").addEventListener("click", toggleTheme);
+  updateAiBtn();
+  $("aiBtn").addEventListener("click", () => {
+    try { localStorage.setItem("aiSpots", aiEnabled() ? "0" : "1"); } catch {}
+    updateAiBtn();
+  });
   $("zoomIn").addEventListener("click", () => map.setZoom(map.getZoom() + 1));
   $("zoomOut").addEventListener("click", () => map.setZoom(map.getZoom() - 1));
   wireAutocomplete("from", "acFrom");
@@ -449,6 +454,19 @@ function isMobile() {
   return window.innerWidth <= 720;
 }
 
+// AI-places toggle (Gemini). Default OFF -> use fast OpenStreetMap.
+function aiEnabled() {
+  try { return localStorage.getItem("aiSpots") === "1"; } catch { return false; }
+}
+function updateAiBtn() {
+  const b = $("aiBtn");
+  if (!b) return;
+  const on = aiEnabled();
+  b.classList.toggle("on", on);
+  b.setAttribute("aria-pressed", on ? "true" : "false");
+  b.title = on ? "AI places: on (Gemini)" : "AI places: off (OpenStreetMap)";
+}
+
 // Draggable bottom sheet (phones). Snap points: peek / half / full.
 // Drag the handle to resize; tap it to cycle snaps.
 function setupSheet() {
@@ -566,6 +584,21 @@ function renderSpots(sid, spots, source) {
 // result if it arrives within its timeout. Falls back gracefully if either fails.
 async function loadSpots(sid, s) {
   const coord = { lat: s.lat, lon: s.lon };
+
+  // default path: AI off -> OpenStreetMap only (fast, no Gemini wait)
+  if (!aiEnabled()) {
+    try {
+      const raw = await getNearbyPlaces(coord, { radiusM: 800, limit: 5 });
+      if (selectedStationId !== sid) return;
+      renderSpots(sid, raw.map((p) => ({ name: p.name, kind: p.kind, dist: `${p.distM}m` })), "osm");
+    } catch {
+      const body = popoverEl?.querySelector(".spots");
+      if (body && selectedStationId === sid) body.innerHTML = `<div class="ac-empty">Spots unavailable right now.</div>`;
+    }
+    return;
+  }
+
+  // AI on: progressive — Overpass fast, upgrade to Gemini if it arrives
   let shown = false;
 
   const gem = getNearbyPlacesGemini(coord, s.name)
