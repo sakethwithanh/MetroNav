@@ -4,6 +4,8 @@
 node_modules/
 data/raw-overpass.json
 .claude/
+.vercel/
 MetroNav-standalone.html
 image*.png
 *.original.md
+.vercel
