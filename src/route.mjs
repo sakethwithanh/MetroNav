@@ -193,14 +193,18 @@ function summarize(metro, hops) {
   };
 }
 
-// DMRC distance-slab fare (approx, 2024 normal rates, INR).
-export function estimateFare(km) {
-  if (km <= 2) return 10;
-  if (km <= 5) return 20;
-  if (km <= 12) return 30;
-  if (km <= 21) return 40;
-  if (km <= 32) return 50;
-  return 60;
+// DMRC distance-slab fare (INR). Sundays & national holidays are one slab
+// cheaper. Holidays aren't enumerated here, so only Sunday gets the discount.
+export function estimateFare(km, now = new Date()) {
+  // day of week in IST (0 = Sunday), independent of host timezone
+  const istDay = new Date(now.getTime() + 5.5 * 3600 * 1000).getUTCDay();
+  const sunday = istDay === 0;
+  // [maxKm, fare]
+  const slabs = sunday
+    ? [[2, 11], [5, 11], [12, 21], [21, 32], [32, 43], [Infinity, 54]]
+    : [[2, 11], [5, 21], [12, 32], [21, 43], [32, 54], [Infinity, 64]];
+  for (const [max, fare] of slabs) if (km <= max) return fare;
+  return slabs[slabs.length - 1][1];
 }
 
 // Public: find best route between two station ids.
