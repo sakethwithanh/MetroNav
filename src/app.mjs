@@ -565,7 +565,7 @@ function renderSpots(sid, spots, source) {
 async function loadSpots(sid, s) {
   const coord = { lat: s.lat, lon: s.lon };
   try {
-    const raw = await getNearbyPlaces(coord, { radiusM: 800, limit: 5 });
+    const raw = await getNearbyPlaces(coord, { radiusM: 1000, limit: 5 });
     if (selectedStationId !== sid) return;
     renderSpots(sid, raw.map((p) => ({ name: p.name, kind: p.kind, dist: `${p.distM}m` })), "osm");
   } catch {

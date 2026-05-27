@@ -9,15 +9,19 @@ const ENDPOINTS = [
 ];
 const UA = "metro-nav/0.1 (personal Delhi Metro app)";
 
-// category -> {label, weight}. Higher weight = more "destination-worthy".
+// category -> {kind, weight}. Higher weight = more "destination-worthy".
+// Balanced for a visitor: attractions still lead, but food/markets/pubs/hotels
+// surface too (a diversity cap below keeps the top-5 from being all one kind).
 const CATEGORIES = [
-  { q: '["tourism"~"attraction|museum|gallery|viewpoint|artwork|zoo"]', kind: "attraction", weight: 5 },
-  { q: '["historic"]', kind: "heritage", weight: 5 },
-  { q: '["amenity"="place_of_worship"]', kind: "temple", weight: 3 },
-  { q: '["leisure"~"park|garden"]', kind: "park", weight: 3 },
-  { q: '["shop"="mall"]', kind: "mall", weight: 4 },
+  { q: '["tourism"~"attraction|museum|gallery|viewpoint|zoo|theme_park"]', kind: "attraction", weight: 5 },
+  { q: '["historic"]', kind: "heritage", weight: 4 },
+  { q: '["shop"~"mall|department_store"]', kind: "mall", weight: 4 },
+  { q: '["amenity"="marketplace"]', kind: "market", weight: 4 },
   { q: '["amenity"~"pub|bar|nightclub"]', kind: "pub/bar", weight: 4 },
-  { q: '["amenity"~"restaurant|cafe"]', kind: "food", weight: 2 },
+  { q: '["amenity"~"restaurant|cafe|food_court"]', kind: "food", weight: 4 },
+  { q: '["leisure"~"park|garden"]', kind: "park", weight: 3 },
+  { q: '["tourism"="hotel"]', kind: "hotel", weight: 3 },
+  { q: '["amenity"="place_of_worship"]', kind: "temple", weight: 3 },
 ];
 
 function haversineM(a, b) {
@@ -41,13 +45,15 @@ function buildQuery(coord, radiusM) {
 function classify(tags) {
   for (const c of CATEGORIES) {
     // cheap re-match against the tag object
-    if (c.kind === "attraction" && /attraction|museum|gallery|viewpoint|artwork|zoo/.test(tags.tourism || "")) return c;
+    if (c.kind === "attraction" && /attraction|museum|gallery|viewpoint|zoo|theme_park/.test(tags.tourism || "")) return c;
     if (c.kind === "heritage" && tags.historic) return c;
-    if (c.kind === "temple" && tags.amenity === "place_of_worship") return c;
-    if (c.kind === "park" && /park|garden/.test(tags.leisure || "")) return c;
-    if (c.kind === "mall" && tags.shop === "mall") return c;
+    if (c.kind === "mall" && /mall|department_store/.test(tags.shop || "")) return c;
+    if (c.kind === "market" && tags.amenity === "marketplace") return c;
     if (c.kind === "pub/bar" && /pub|bar|nightclub/.test(tags.amenity || "")) return c;
-    if (c.kind === "food" && /restaurant|cafe/.test(tags.amenity || "")) return c;
+    if (c.kind === "food" && /restaurant|cafe|food_court/.test(tags.amenity || "")) return c;
+    if (c.kind === "park" && /park|garden/.test(tags.leisure || "")) return c;
+    if (c.kind === "hotel" && tags.tourism === "hotel") return c;
+    if (c.kind === "temple" && tags.amenity === "place_of_worship") return c;
   }
   return null;
 }
@@ -106,5 +112,23 @@ export async function getNearbyPlaces(
   }
 
   items.sort((a, b) => b.score - a.score);
-  return items.slice(0, limit).map(({ score, ...rest }) => rest);
+
+  // diversity cap: at most 2 of any one kind, so the top list spans categories
+  // (attraction + food + market + park...) instead of e.g. 5 heritage sites.
+  const perKind = {};
+  const picked = [];
+  for (const it of items) {
+    if (picked.length >= limit) break;
+    perKind[it.kind] = (perKind[it.kind] || 0) + 1;
+    if (perKind[it.kind] > 2) continue;
+    picked.push(it);
+  }
+  // if the cap left us short (sparse area), backfill from what's left
+  if (picked.length < limit) {
+    for (const it of items) {
+      if (picked.length >= limit) break;
+      if (!picked.includes(it)) picked.push(it);
+    }
+  }
+  return picked.map(({ score, ...rest }) => rest);
 }
