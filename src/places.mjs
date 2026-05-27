@@ -6,8 +6,33 @@
 const ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
   "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.osm.ch/api/interpreter",
 ];
 const UA = "metro-nav/0.1 (personal Delhi Metro app)";
+
+// cache spot lookups per station (rounded coord) so repeat clicks are instant
+// and we stop hammering the public Overpass servers. Persists across reloads.
+const CACHE_TTL = 1000 * 60 * 60 * 24 * 7; // 7 days
+const memCache = new Map();
+function cacheKey(coord, radiusM) {
+  return `spots:${coord.lat.toFixed(4)},${coord.lon.toFixed(4)}:${radiusM}`;
+}
+function cacheGet(key) {
+  if (memCache.has(key)) return memCache.get(key);
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { t, v } = JSON.parse(raw);
+    if (Date.now() - t > CACHE_TTL) return null;
+    memCache.set(key, v);
+    return v;
+  } catch { return null; }
+}
+function cacheSet(key, v) {
+  memCache.set(key, v);
+  try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), v })); } catch {}
+}
 
 // category -> {kind, weight}. Higher weight = more "destination-worthy".
 // Balanced for a visitor: attractions still lead, but food/markets/pubs/hotels
@@ -61,8 +86,12 @@ function classify(tags) {
 // Top places near a coord. Returns ranked array of {name, kind, distM, lat, lon}.
 export async function getNearbyPlaces(
   coord,
-  { radiusM = 800, limit = 5, fetchImpl = fetch, timeoutMs = 8000 } = {}
+  { radiusM = 800, limit = 5, fetchImpl = fetch, timeoutMs = 18000 } = {}
 ) {
+  const ckey = cacheKey(coord, radiusM);
+  const cached = cacheGet(ckey);
+  if (cached) return cached.slice(0, limit);
+
   const body = "data=" + encodeURIComponent(buildQuery(coord, radiusM));
   let json;
   let lastErr;
@@ -130,5 +159,7 @@ export async function getNearbyPlaces(
       if (!picked.includes(it)) picked.push(it);
     }
   }
-  return picked.map(({ score, ...rest }) => rest);
+  const out = picked.map(({ score, ...rest }) => rest);
+  if (out.length) cacheSet(ckey, out);
+  return out;
 }
