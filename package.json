@@ -7,11 +7,7 @@
   "scripts": {
     "fetch:data": "node scripts/fetch-stations.mjs",
     "build:graph": "node scripts/build-graph.mjs",
-    "dev": "python3 -m http.server 5173",
-    "proxy": "node server/places-proxy.mjs"
-  },
-  "dependencies": {
-    "@google/genai": "^2.6.0"
+    "dev": "python3 -m http.server 5173"
   },
   "engines": {
     "node": ">=20"

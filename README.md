@@ -7,45 +7,25 @@ free, keyless sources (OpenStreetMap / Nominatim / Overpass).
 ## Run (local)
 
 ```bash
-npm install
 npm run dev          # static app at http://localhost:5173
-
-# optional: Gemini nearby-places proxy (free key from aistudio.google.com/apikey)
-cp .env.example .env # put your key in it
-npm run proxy        # http://localhost:8787
 ```
 
 Open http://localhost:5173, enter From / To (or tap **📍 Me**), Find route.
-
-Because the app now defaults the places endpoint to `/api/places` (for Vercel),
-local use of the standalone proxy needs a one-time browser override — run this
-in the DevTools console once:
-
-```js
-localStorage.setItem("metroProxy", "http://localhost:8787/places")
-```
-
-(Or run `vercel dev` instead of `npm run dev` + `npm run proxy` — it serves the
-static app **and** `/api/places` on one port, matching production.)
+Fully static — no API keys, no backend.
 
 ## Deploy (Vercel)
 
-Static frontend + one serverless function. Concurrent users are isolated:
-routing runs in each browser; `/api/places` is stateless per request.
+Pure static site. Concurrent users are isolated — all routing runs in each
+browser; geocoding and nearby-places call free public APIs directly.
 
 ```bash
 npm i -g vercel
-vercel                       # link + preview deploy
-vercel env add GEMINI_API_KEY   # paste your key (Production + Preview)
-vercel --prod                # production deploy
+vercel              # link + preview deploy
+vercel --prod       # production deploy
 ```
 
-- `api/places.js` — the Gemini places function (Maps→Search grounding).
-- `server/gemini-places.mjs` — shared core (used by the function + local proxy).
-- `vercel.json` — sets the function `maxDuration` to 30s (Gemini calls).
-- Key lives in the Vercel env var, never in the browser.
-- Shared ceiling = Gemini free-tier quota; on quota/error the browser auto-falls
-  back to free Overpass.
+Or connect the GitHub repo in the Vercel dashboard for auto-deploy on push.
+No environment variables needed.
 
 ## Architecture (built layer by layer)
 

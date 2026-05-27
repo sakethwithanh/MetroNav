@@ -836,10 +836,3 @@ button { font-family: inherit; }
   background: currentColor;
   opacity: 0.85;
 }
-
-/* AI-places toggle: lit when on */
-.icon-btn.on {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-}
-.icon-btn.on:hover { background: var(--accent-soft); }

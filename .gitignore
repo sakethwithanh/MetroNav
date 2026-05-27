@@ -1,6 +1,5 @@
 .env
 .env.*
-!.env.example
 node_modules/
 data/raw-overpass.json
 .claude/
@@ -8,4 +7,3 @@ data/raw-overpass.json
 MetroNav-standalone.html
 image*.png
 *.original.md
-.vercel

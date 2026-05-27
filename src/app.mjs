@@ -4,7 +4,7 @@
 import { buildAdjacency, findRoute } from "./route.mjs";
 import { geocode, suggest, nearestStations, planTrip } from "./geo.mjs";
 import { nextTrains } from "./schedule.mjs";
-import { getNearbyPlaces, getNearbyPlacesGemini } from "./places.mjs";
+import { getNearbyPlaces } from "./places.mjs";
 
 const $ = (id) => document.getElementById(id);
 const results = $("results");
@@ -104,11 +104,6 @@ async function boot() {
   $("meTool").addEventListener("click", useMyLocation);
   $("swapBtn").addEventListener("click", swap);
   $("themeBtn").addEventListener("click", toggleTheme);
-  updateAiBtn();
-  $("aiBtn").addEventListener("click", () => {
-    try { localStorage.setItem("aiSpots", aiEnabled() ? "0" : "1"); } catch {}
-    updateAiBtn();
-  });
   $("zoomIn").addEventListener("click", () => map.setZoom(map.getZoom() + 1));
   $("zoomOut").addEventListener("click", () => map.setZoom(map.getZoom() - 1));
   wireAutocomplete("from", "acFrom");
@@ -454,19 +449,6 @@ function isMobile() {
   return window.innerWidth <= 720;
 }
 
-// AI-places toggle (Gemini). Default OFF -> use fast OpenStreetMap.
-function aiEnabled() {
-  try { return localStorage.getItem("aiSpots") === "1"; } catch { return false; }
-}
-function updateAiBtn() {
-  const b = $("aiBtn");
-  if (!b) return;
-  const on = aiEnabled();
-  b.classList.toggle("on", on);
-  b.setAttribute("aria-pressed", on ? "true" : "false");
-  b.title = on ? "AI places: on (Gemini)" : "AI places: off (OpenStreetMap)";
-}
-
 // Draggable bottom sheet (phones). Snap points: peek / half / full.
 // Drag the handle to resize; tap it to cycle snaps.
 function setupSheet() {
@@ -560,7 +542,7 @@ async function openPopover(sid) {
       <div class="pop-sub">${esc(ntSub)}</div>
       <button class="close" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
     </div>
-    <div class="spots-header">Top 5 nearby</div>
+    <div class="spots-header">Top places to visit</div>
     <div class="spots"><div class="ac-empty">finding spots…</div></div>`;
   document.body.appendChild(popoverEl);
   popoverEl.querySelector(".close").addEventListener("click", removePopover);
@@ -579,63 +561,25 @@ function renderSpots(sid, spots, source) {
   return true;
 }
 
-// Progressive load: fire Gemini + Overpass together. Show Overpass as soon as
-// it returns (fast) so the popover never hangs; upgrade to the richer Gemini
-// result if it arrives within its timeout. Falls back gracefully if either fails.
+// Load top-5 nearby spots from OpenStreetMap (Overpass).
 async function loadSpots(sid, s) {
   const coord = { lat: s.lat, lon: s.lon };
-
-  // default path: AI off -> OpenStreetMap only (fast, no Gemini wait)
-  if (!aiEnabled()) {
-    try {
-      const raw = await getNearbyPlaces(coord, { radiusM: 800, limit: 5 });
-      if (selectedStationId !== sid) return;
-      renderSpots(sid, raw.map((p) => ({ name: p.name, kind: p.kind, dist: `${p.distM}m` })), "osm");
-    } catch {
-      const body = popoverEl?.querySelector(".spots");
-      if (body && selectedStationId === sid) body.innerHTML = `<div class="ac-empty">Spots unavailable right now.</div>`;
-    }
-    return;
-  }
-
-  // AI on: progressive — Overpass fast, upgrade to Gemini if it arrives
-  let shown = false;
-
-  const gem = getNearbyPlacesGemini(coord, s.name)
-    .then((g) => ({ spots: g.spots, source: g.source }))
-    .catch(() => null);
-  const osm = getNearbyPlaces(coord, { radiusM: 800, limit: 5 })
-    .then((raw) => ({ spots: raw.map((p) => ({ name: p.name, kind: p.kind, dist: `${p.distM}m` })), source: "osm" }))
-    .catch(() => null);
-
-  // show Overpass the moment it's ready, unless Gemini already won
-  osm.then((o) => {
-    if (o && !shown && selectedStationId === sid) shown = renderSpots(sid, o.spots, o.source);
-  });
-
-  const g = await gem;
-  if (g && selectedStationId === sid) {
-    renderSpots(sid, g.spots, g.source); // upgrade to richer Gemini result
-    return;
-  }
-  // Gemini failed/timed out: make sure Overpass (or an error) is shown
-  const o = await osm;
-  if (selectedStationId !== sid) return;
-  if (o) renderSpots(sid, o.spots, o.source);
-  else if (!shown) {
+  try {
+    const raw = await getNearbyPlaces(coord, { radiusM: 800, limit: 5 });
+    if (selectedStationId !== sid) return;
+    renderSpots(sid, raw.map((p) => ({ name: p.name, kind: p.kind, dist: `${p.distM}m` })), "osm");
+  } catch {
     const body = popoverEl?.querySelector(".spots");
-    if (body) body.innerHTML = `<div class="ac-empty">Spots unavailable right now.</div>`;
+    if (body && selectedStationId === sid) body.innerHTML = `<div class="ac-empty">Spots unavailable right now.</div>`;
   }
 }
 
 function spotRow(p, i) {
-  const name = p.uri ? `<a class="name" href="${esc(p.uri)}" target="_blank" rel="noopener">${esc(p.name)}</a>` : `<div class="name">${esc(p.name)}</div>`;
-  const sub = p.note ? `${esc(p.kind)} · ${esc(p.note)}` : esc(p.kind);
-  return `<div class="spot"><span class="n">${i + 1}</span><div>${name}<div class="tag">${sub}</div></div><span class="d">${esc(p.dist || "")}</span></div>`;
+  return `<div class="spot"><span class="n">${i + 1}</span><div><div class="name">${esc(p.name)}</div><div class="tag">${esc(p.kind)}</div></div><span class="d">${esc(p.dist || "")}</span></div>`;
 }
 
 function sourceTag(source) {
-  const label = { "gemini-maps": "via Gemini · Maps", "gemini-search": "via Gemini · Search", osm: "via OpenStreetMap" }[source] || "";
+  const label = { osm: "via OpenStreetMap" }[source] || "";
   return label ? `<div class="ac-empty" style="text-align:right;padding-top:6px">${label}</div>` : "";
 }
 

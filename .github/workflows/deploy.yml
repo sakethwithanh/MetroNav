@@ -23,7 +23,7 @@ jobs:
       - run: npm ci
       - name: Syntax-check all modules
         run: |
-          for f in src/*.mjs server/*.mjs scripts/*.mjs api/*.js; do
+          for f in src/*.mjs scripts/*.mjs; do
             node --check "$f"
           done
       - name: Validate metro.json
